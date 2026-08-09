@@ -11,6 +11,8 @@
   "scripts": {
     "build": "tsc --noEmit",
     "deploy": "alchemy deploy --stage production",
+    "deploy:staging": "alchemy deploy --stage staging",
+    "destroy:staging": "alchemy destroy --stage staging",
     "dev": "alchemy dev",
     "dev:desktop": "bun run --cwd packages/desktop dev",
     "build:desktop": "bun run --cwd packages/desktop build",
