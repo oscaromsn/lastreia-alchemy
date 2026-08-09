@@ -43,3 +43,23 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
+  # The Tauri desktop shell. Its Cargo.toml lives beside the lockfile, not at
+  # the repo root, so the directory must point at the crate itself.
+  #
+  # Caveat worth knowing before trusting a green check on these PRs: ci.yml
+  # builds only the TypeScript side, so nothing here compiles Rust. A cargo PR
+  # can pass CI without the desktop app having been built at all. Building
+  # Tauri on ubuntu needs the webkit2gtk/gtk system packages installed first.
+  - package-ecosystem: "cargo"
+    directory: "/packages/desktop/src-tauri"
+    schedule:
+      interval: "weekly"
+    groups:
+      rust-dependencies:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Majors need a human, same as the bun ecosystem above.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
