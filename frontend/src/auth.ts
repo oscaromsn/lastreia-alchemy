@@ -155,12 +155,11 @@ export const SignOut = Command.define(
 const encodeSession = S.encodeSync(S.fromJsonString(Session));
 const decodeStoredSession = S.decodeUnknownOption(S.fromJsonString(Session));
 
-export const readStoredSession = Effect.sync(
-  (): Option.Option<Session> =>
-    Option.flatMap(
-      Option.fromNullishOr(localStorage.getItem(SESSION_STORAGE_KEY)),
-      decodeStoredSession,
-    ),
+export const readStoredSession = Effect.sync((): Option.Option<Session> =>
+  Option.flatMap(
+    Option.fromNullishOr(localStorage.getItem(SESSION_STORAGE_KEY)),
+    decodeStoredSession,
+  ),
 ).pipe(Effect.catch(() => Effect.succeedNone));
 
 export const SaveSession = Command.define(
