@@ -1,0 +1,75 @@
+name: CI (desktop)
+
+# Compiles the Tauri desktop crate. Kept separate from ci.yml and filtered by
+# path so the common TypeScript-only PR does not pay for apt + a Rust build:
+# ci.yml finishes in ~25s, this job takes minutes on a cold cache.
+#
+# The point is to make Dependabot's cargo PRs mean something. ci.yml compiles
+# no Rust, so before this existed a cargo PR could go green without the
+# desktop crate having been built at all.
+
+on:
+  pull_request:
+    paths:
+      - "packages/desktop/**"
+      - ".github/workflows/ci-desktop.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "packages/desktop/**"
+      - ".github/workflows/ci-desktop.yml"
+
+concurrency:
+  group: ci-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Tauri v2's Linux backend is webkit2gtk/gtk — the same stack that pulls
+      # in the open glib advisory. Without these headers the -sys crates fail
+      # to build and cargo never reaches the crate's own code. Tauri v2 needs
+      # webkit2gtk 4.1; 4.0 is for v1.
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            file
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/desktop/src-tauri
+
+      # build.rs runs tauri_build::build(), which validates tauri.conf.json —
+      # including that `frontendDist` (../../../frontend/dist) resolves. This
+      # job verifies the Rust side compiles, not that the real bundle is
+      # correct, so a placeholder keeps it independent of the frontend build.
+      - name: Stub frontendDist
+        run: mkdir -p frontend/dist && touch frontend/dist/index.html
+
+      - name: Format
+        working-directory: packages/desktop/src-tauri
+        run: cargo fmt --check
+
+      # --locked fails if Cargo.lock would have to change, the Rust analogue of
+      # `bun install --frozen-lockfile`. This is what makes a Dependabot cargo
+      # PR meaningful: it proves the proposed lockfile actually compiles.
+      - name: Check
+        working-directory: packages/desktop/src-tauri
+        run: cargo check --locked --all-targets
