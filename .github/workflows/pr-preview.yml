@@ -36,7 +36,14 @@ jobs:
     # from a fork would fail with empty credentials rather than do anything
     # useful. Skip it. Do NOT "fix" this by switching to pull_request_target:
     # that runs with secrets available to untrusted fork code.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    #
+    # Dependabot is excluded for the same reason — its runs read a separate
+    # Dependabot secrets store, not these secrets — and because its branch
+    # names (dependabot/npm_and_yarn/<dir>/<group>) blow past the 42-char
+    # stage limit anyway. Dependency PRs still get the full ci.yml checks.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

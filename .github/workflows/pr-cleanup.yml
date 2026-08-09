@@ -19,9 +19,11 @@ permissions:
 
 jobs:
   destroy:
-    # Mirrors pr-preview.yml: a fork PR never deployed a preview, so there is
-    # nothing to destroy and no secrets to destroy it with.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Mirrors pr-preview.yml exactly: a PR that never got a preview has
+    # nothing to destroy, and no secrets to destroy it with.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
