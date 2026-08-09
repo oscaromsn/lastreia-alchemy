@@ -6,6 +6,15 @@ name: PR Preview
 # instead of creating a project — every preview branches the *staging*
 # project's database. The `staging` stage must therefore already be deployed,
 # or the ref has nothing to resolve against.
+#
+# This repo is public, which makes Actions logs public too. Account id and
+# workers.dev subdomain are stored as secrets rather than vars purely so
+# GitHub masks them: `alchemy deploy` prints the deployed URLs to stdout, and
+# masking is what keeps those out of a world-readable log. For the same reason
+# this workflow does not comment preview URLs on the PR — masking applies to
+# log output, not to API payloads, so a comment would publish the subdomain in
+# plain text. Derive a preview URL locally instead:
+#   https://lastreia-alchemy-web-<stage>.<subdomain>.workers.dev
 
 on:
   pull_request:
@@ -20,10 +29,14 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   preview:
+    # Forked PRs never receive secrets in a public repo, so a preview deploy
+    # from a fork would fail with empty credentials rather than do anything
+    # useful. Skip it. Do NOT "fix" this by switching to pull_request_target:
+    # that runs with secrets available to untrusted fork code.
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,24 +71,7 @@ jobs:
       - name: Deploy preview
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: bunx alchemy deploy --stage "${{ steps.stage.outputs.stage }}" --yes
-
-      - name: Comment preview URLs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          STAGE: ${{ steps.stage.outputs.stage }}
-          SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
-        run: |
-          # Worker names are deterministic per stage (see alchemy.run.ts), so
-          # the URLs are known without reading stack outputs.
-          web="https://lastreia-alchemy-web-${STAGE}.${SUBDOMAIN}.workers.dev"
-          api="https://lastreia-alchemy-chat-${STAGE}.${SUBDOMAIN}.workers.dev"
-          gh pr comment "${{ github.event.number }}" --edit-last --create-if-none --body \
-            "Preview for \`${STAGE}\`
-          - Web: ${web}
-          - API: ${api}
-
-          Destroyed automatically when this PR closes."
