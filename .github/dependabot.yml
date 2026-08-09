@@ -1,0 +1,26 @@
+version: 2
+
+# Without this file, Dependabot falls back to the npm_and_yarn ecosystem: it
+# edits package.json but leaves bun.lock untouched, so every dependency PR
+# fails ci.yml at `bun install --frozen-lockfile` with "lockfile had changes,
+# but lockfile is frozen". The bun ecosystem updates the lockfile too.
+updates:
+  - package-ecosystem: "bun"
+    # The workspace root — bun.lock covers backend, frontend and
+    # packages/desktop from here.
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # One PR per batch instead of one per dependency: each PR costs a full CI
+    # run, and this stack pins several beta/rc versions that move together.
+    groups:
+      all-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
