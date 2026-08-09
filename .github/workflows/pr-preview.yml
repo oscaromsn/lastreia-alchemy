@@ -1,0 +1,81 @@
+name: PR Preview
+
+# Deploys a throwaway copy of the stack per pull request, on stage
+# `pr-<branch>`. Because that stage name starts with `pr-`, backend/src/Db.ts
+# resolves Postgres via `Neon.Project.ref("app-db", { stage: "staging" })`
+# instead of creating a project — every preview branches the *staging*
+# project's database. The `staging` stage must therefore already be deployed,
+# or the ref has nothing to resolve against.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Never let two runs mutate the same stage's state concurrently — the shared
+# Cloudflare state store locks per stack+stage. Queue instead of cancelling,
+# so a cancelled run can't leave a half-applied stage behind.
+concurrency:
+  group: preview-${{ github.head_ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Requires bun.lock to be committed; it also pins the alchemy patch in
+      # patches/, which the build depends on.
+      - run: bun install --frozen-lockfile
+
+      - name: Resolve stage
+        id: stage
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          # Identical transform to the dev:branch/deploy:branch scripts in
+          # package.json, but derived from github.head_ref: actions/checkout
+          # leaves a detached HEAD, so `git branch --show-current` is empty.
+          stage="pr-$(printf '%s' "$HEAD_REF" | tr '[:upper:]/_' '[:lower:]--' | tr -cd 'a-z0-9-')"
+          # Workers are named `lastreia-alchemy-web-<stage>` and that name is a
+          # DNS label on workers.dev, capped at 63 chars. The 21-char prefix
+          # leaves 42 for the stage. Fail loudly rather than truncating, which
+          # would silently collide two branches onto one stage.
+          if [ ${#stage} -gt 42 ]; then
+            echo "::error::Branch name too long: stage '$stage' is ${#stage} chars (max 42). Rename the branch to deploy a preview."
+            exit 1
+          fi
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: bunx alchemy deploy --stage "${{ steps.stage.outputs.stage }}" --yes
+
+      - name: Comment preview URLs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STAGE: ${{ steps.stage.outputs.stage }}
+          SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+        run: |
+          # Worker names are deterministic per stage (see alchemy.run.ts), so
+          # the URLs are known without reading stack outputs.
+          web="https://lastreia-alchemy-web-${STAGE}.${SUBDOMAIN}.workers.dev"
+          api="https://lastreia-alchemy-chat-${STAGE}.${SUBDOMAIN}.workers.dev"
+          gh pr comment "${{ github.event.number }}" --edit-last --create-if-none --body \
+            "Preview for \`${STAGE}\`
+          - Web: ${web}
+          - API: ${api}
+
+          Destroyed automatically when this PR closes."

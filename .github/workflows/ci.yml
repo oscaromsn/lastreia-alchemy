@@ -1,0 +1,43 @@
+name: CI
+
+# Credential-free checks. Deliberately separate from pr-preview.yml so that
+# formatting, lint, typecheck and tests still gate every PR even when the
+# Cloudflare/Neon secrets are missing or a preview deploy fails.
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Requires bun.lock to be committed; it also pins the alchemy patch in
+      # patches/, which the build depends on.
+      - run: bun install --frozen-lockfile
+
+      - name: Format
+        run: bun run format:check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run build
+
+      - name: Test
+        run: bun run test

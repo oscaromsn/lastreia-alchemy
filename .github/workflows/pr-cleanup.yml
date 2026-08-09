@@ -1,0 +1,48 @@
+name: PR Preview Cleanup
+
+# Tears down the `pr-<branch>` stage when a pull request closes or merges.
+# Without this, every preview leaks a Neon branch in the staging project plus
+# two Cloudflare workers, all billable and all invisible once the PR is gone.
+
+on:
+  pull_request:
+    types: [closed]
+
+# Share the preview job's concurrency group so a destroy can never overlap a
+# still-running deploy for the same branch.
+concurrency:
+  group: preview-${{ github.head_ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Resolve stage
+        id: stage
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          # Must match pr-preview.yml exactly, or cleanup targets a stage that
+          # was never deployed and the real one leaks.
+          stage="pr-$(printf '%s' "$HEAD_REF" | tr '[:upper:]/_' '[:lower:]--' | tr -cd 'a-z0-9-')"
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+
+      - name: Destroy preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: bunx alchemy destroy --stage "${{ steps.stage.outputs.stage }}" --yes

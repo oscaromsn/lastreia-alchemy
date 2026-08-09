@@ -1,0 +1,47 @@
+name: Deploy Production
+
+# Production runs on its own stage with its own Neon project — it shares
+# nothing with `staging` or the `pr-*` previews.
+
+on:
+  push:
+    # This repo's trunk is currently `master`; `main` is listed so a rename
+    # doesn't silently stop deploying.
+    branches: [main, master]
+  workflow_dispatch:
+
+# One production apply at a time. Never cancel mid-apply: the run holds a lock
+# on the production stage in the shared state store.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run build
+
+      - name: Test
+        run: bun run test
+
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: bunx alchemy deploy --stage production --yes
