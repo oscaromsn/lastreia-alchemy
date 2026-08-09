@@ -44,7 +44,7 @@
     "@types/bun": "latest",
     "@types/pg": "^8.11.0",
     "drizzle-kit": "1.0.0-rc.1",
-    "oxfmt": "^0.57.0",
+    "oxfmt": "^0.62.0",
     "oxlint": "^1.72.0"
   },
   "overrides": {
