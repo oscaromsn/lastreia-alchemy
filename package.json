@@ -29,22 +29,22 @@
     "test:integ": "INTEG=1 bun test test/integ.test.ts"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20250805.0",
-    "@effect/platform-bun": "4.0.0-beta.88",
-    "@effect/platform-node": "4.0.0-beta.88",
-    "@effect/sql-pg": "4.0.0-beta.88",
-    "alchemy": "2.0.0-beta.59",
+    "@cloudflare/workers-types": "^5.20260804.1",
+    "@effect/platform-bun": "4.0.0-beta.104",
+    "@effect/platform-node": "4.0.0-beta.104",
+    "@effect/sql-pg": "4.0.0-beta.104",
+    "alchemy": "2.0.0-beta.70",
     "better-auth": "^1.6.23",
-    "drizzle-orm": "1.0.0-rc.1",
-    "effect": "4.0.0-beta.88",
+    "drizzle-orm": "1.0.0-rc.4",
+    "effect": "4.0.0-beta.104",
     "pg": "^8.13.0",
-    "typescript": "^5"
+    "typescript": "^7"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/pg": "^8.11.0",
-    "drizzle-kit": "1.0.0-rc.1",
-    "oxfmt": "^0.57.0",
+    "drizzle-kit": "1.0.0-rc.4",
+    "oxfmt": "^0.62.0",
     "oxlint": "^1.72.0"
   },
   "overrides": {
