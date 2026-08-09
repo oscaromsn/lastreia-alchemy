@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Secrets — .env holds NEON_API_KEY and other live credentials.
+# .env.example is the tracked template.
+.env
+.env.*
+!.env.example
+
+# Alchemy: local state, logs, and the encrypted state-store bootstrap
+# (auth token + encryption key live under .alchemy/state).
+.alchemy/
+
+# Build output
+dist/
+.vite/
+*.tsbuildinfo
+
+# Tauri (Rust build artifacts)
+packages/desktop/src-tauri/target/
+
+# OS
+.DS_Store
