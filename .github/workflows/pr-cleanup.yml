@@ -20,10 +20,13 @@ permissions:
 jobs:
   destroy:
     # Mirrors pr-preview.yml exactly: a PR that never got a preview has
-    # nothing to destroy, and no secrets to destroy it with.
+    # nothing to destroy, and no secrets to destroy it with. Keyed on the PR
+    # author rather than github.actor, which on a `closed` event is whoever
+    # clicked close — so a human closing a Dependabot PR would otherwise pass
+    # the check and destroy a stage that was never deployed.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository
-      && github.actor != 'dependabot[bot]'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

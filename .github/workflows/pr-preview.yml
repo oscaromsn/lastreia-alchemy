@@ -43,7 +43,7 @@ jobs:
     # stage limit anyway. Dependency PRs still get the full ci.yml checks.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository
-      && github.actor != 'dependabot[bot]'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -12,10 +12,29 @@ updates:
     schedule:
       interval: "weekly"
     # One PR per batch instead of one per dependency: each PR costs a full CI
-    # run, and this stack pins several beta/rc versions that move together.
+    # run. Restricted to minor/patch so a batch stays reviewable.
     groups:
-      all-dependencies:
+      safe-updates:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # These are pinned to exact pre-release versions on purpose: they move in
+      # lockstep with application code, so every bump is a migration rather
+      # than an update, and `alchemy` additionally keys the patches/ entry in
+      # package.json by exact version — bumping it orphans the patch silently.
+      # Dependabot's first grouped attempt bumped all of them at once and
+      # produced 137 typecheck errors. Upgrade them deliberately instead.
+      - dependency-name: "alchemy"
+      - dependency-name: "effect"
+      - dependency-name: "@effect/*"
+      - dependency-name: "foldkit"
+      - dependency-name: "@foldkit/*"
+      - dependency-name: "drizzle-orm"
+      - dependency-name: "drizzle-kit"
+      # Majors anywhere else still need a human: this batch also carried
+      # TypeScript 5 -> 7 and @cloudflare/workers-types 4 -> 5.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
